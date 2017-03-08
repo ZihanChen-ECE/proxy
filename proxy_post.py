@@ -19,7 +19,6 @@ def server(host, port):
     while 1:
         try:
             conn, addr = s.accept()
-            print "client addr! ", addr
             handle_connection(conn)
         except KeyboardInterrupt:
             print "Bye..."
@@ -40,11 +39,14 @@ def getline(conn):
         #     return
         else:
             line += buf
+            
+
 
 
 def get_header(conn):
 
     headers = ''
+    
     while 1:
         line = getline(conn)
         if line is None:
@@ -56,6 +58,10 @@ def get_header(conn):
     return headers
 
 
+def get_postParm(conn):
+    buffer = conn.recv(4096)
+    return buffer
+    
 def parse_header(raw_headers):
     request_lines = raw_headers.split('\r\n')
     first_line = request_lines[0].split(' ')
@@ -69,7 +75,6 @@ def parse_header(raw_headers):
     print "%s %s" % (method, full_path)
     (scm, netloc, path, params, query, fragment) \
         = urlparse.urlparse(http_full_path, 'http')
-    
     i = netloc.find(':')
     if i >= 0:
         address = netloc[:i], int(netloc[i + 1:])
@@ -81,16 +86,32 @@ def parse_header(raw_headers):
 
 
 def handle_connection(conn):
-    
+
     req_headers = get_header(conn)
     
-
+    print "RAW REQ_HEADER: ", req_headers
+    
     if req_headers is None:
         return
     method, version, scm, address, path, params, query, fragment = \
         parse_header(req_headers)
-        
+    
+    
+    print "method: ", method
+    print "version: ", version
+    print "scm: ", scm
+    print "address: ", address
+    print "params: ", params
+    print "query: ", query
+    print "fragment: ", fragment
+    
+    
+    #message, paramters, Content-Type, Host, Connection = get_postParm()
+    pair = get_postParm(conn)
+    
+    
     path = urlparse.urlunparse(("", "", path, params, query, ""))
+    print "path: ", path
 
     #print "PATH! ", httpPath
 
@@ -99,10 +120,11 @@ def handle_connection(conn):
     
     #print "req_headers before! ", req_headers 
     
-    
+
     soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-
+    
+    print "address! ", address
     try:
         soc.connect(address)
         print "Good connection!!"
@@ -110,8 +132,7 @@ def handle_connection(conn):
         conn.sendall("HTTP/1.1" + str(arg[0]) + " Fail\r\n\r\n")
         conn.close()
         soc.close()
-    else:  
-        
+    else: 
         print "req_headers:  ", req_headers
         
         """
@@ -123,10 +144,11 @@ def handle_connection(conn):
     
 
         req_headers += '\r\n'
-        req_headers += 'Connection: close'
+        req_headers += pair
+        req_headers +='Connection: close'
         
         soc.sendall(req_headers)
- 
+
         data = ''
         while 1:
             try:
@@ -139,7 +161,7 @@ def handle_connection(conn):
                     soc.close()
                     break
         print "DATA!", data
-       
+
         conn.sendall(data)
         conn.close()
         
